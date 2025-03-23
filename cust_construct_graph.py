@@ -1,9 +1,6 @@
+import graphein.protein as gp
 from functools import partial
-from graphein.protein.config import ProteinGraphConfig
 from graphein.protein.features.nodes.amino_acid import amino_acid_one_hot
-
-from ppi.edges import add_heavy_atom_connection
-from ppi.graphs import prune_graph
 from graphein.protein.graphs import construct_graph
 
 def create_protein_graph(
@@ -28,22 +25,27 @@ def create_protein_graph(
     """
     # Set default node features if not provided
     if node_features is None:
-        node_features = [amino_acid_one_hot]
+        node_features = [gp.amino_acid_one_hot]
     
-    # Create configuration
-    config = ProteinGraphConfig(
+    # Define edge construction functions
+    dist_edge_func = {
+        "edge_construction_functions": [
+            partial(gp.add_distance_threshold, threshold=edge_threshold, long_interaction_threshold=0)
+        ]
+    }
+    
+    # Define node metadata functions
+    one_hot = {
+        "node_metadata_functions": node_features
+    }
+    
+    # Create configuration by combining components
+    config = gp.ProteinGraphConfig(
         granularity=granularity,
         verbose=verbose,
         alt_locs="min_occupancy",
-        node_metadata_functions=node_features,
-        edge_construction_functions=[
-            partial(add_heavy_atom_connection, threshold=edge_threshold),
-        ],
-        graph_metadata_functions=[
-            partial(prune_graph, include="CA"),
-        ]
+        **{**dist_edge_func, **one_hot}
     )
     
     # Construct and return graph
     return construct_graph(config=config, path=pdb_path)
-
